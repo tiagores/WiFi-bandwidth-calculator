@@ -1,1 +1,321 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WiFi Bandwidth Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .calculator {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: inline-block;
+            width: 200px;
+            font-weight: bold;
+        }
+        select, input {
+            width: 150px;
+            padding: 5px;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+        }
+        button {
+            background-color: #4472C4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #3b62af;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+        .results h3 {
+            margin-top: 0;
+            color: #4472C4;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #4472C4;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>WiFi Bandwidth Calculator</h1>
+    <p>Use this calculator to estimate available bandwidth per user in your WiFi network.</p>
+    
+    <div class="calculator">
+        <div class="form-group">
+            <label for="wifi-standard">WiFi Standard:</label>
+            <select id="wifi-standard">
+                <option value="ax">WiFi 6 (802.11ax)</option>
+                <option value="ac">WiFi 5 (802.11ac)</option>
+                <option value="n">WiFi 4 (802.11n)</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="channel-width">Channel Width:</label>
+            <select id="channel-width">
+                <option value="20">20 MHz</option>
+                <option value="40">40 MHz</option>
+                <option value="80" selected>80 MHz</option>
+                <option value="160">160 MHz</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="frequency-band">Frequency Band:</label>
+            <select id="frequency-band">
+                <option value="2.4">2.4 GHz</option>
+                <option value="5" selected>5 GHz</option>
+                <option value="6">6 GHz (WiFi 6E)</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="ap-spatial-streams">AP Spatial Streams:</label>
+            <select id="ap-spatial-streams">
+                <option value="1">1x1</option>
+                <option value="2">2x2</option>
+                <option value="3">3x3</option>
+                <option value="4" selected>4x4</option>
+                <option value="8">8x8</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="num-aps">Number of Access Points:</label>
+            <input type="number" id="num-aps" value="5" min="1">
+        </div>
+        
+        <div class="form-group">
+            <label for="total-clients">Total Number of Clients:</label>
+            <input type="number" id="total-clients" value="110" min="1">
+        </div>
+        
+        <div class="form-group">
+            <label for="active-ratio">Active Client Ratio (%):</label>
+            <input type="number" id="active-ratio" value="20" min="1" max="100">
+        </div>
+        
+        <div class="form-group">
+            <label>Client Capability Distribution:</label>
+            <div style="margin-left: 200px;">
+                <div style="margin-bottom: 5px;">
+                    <label style="width: 100px;">1x1 clients:</label>
+                    <input type="number" id="clients-1x1" value="20" min="0" max="100" style="width: 60px;"> %
+                </div>
+                <div style="margin-bottom: 5px;">
+                    <label style="width: 100px;">2x2 clients:</label>
+                    <input type="number" id="clients-2x2" value="70" min="0" max="100" style="width: 60px;"> %
+                </div>
+                <div style="margin-bottom: 5px;">
+                    <label style="width: 100px;">3x3 clients:</label>
+                    <input type="number" id="clients-3x3" value="10" min="0" max="100" style="width: 60px;"> %
+                </div>
+                <div>
+                    <label style="width: 100px;">4x4 clients:</label>
+                    <input type="number" id="clients-4x4" value="0" min="0" max="100" style="width: 60px;"> %
+                </div>
+            </div>
+        </div>
+        
+        <button id="calculate-btn">Calculate Bandwidth</button>
+        
+        <div class="results" id="results" style="display: none;">
+            <h3>Results</h3>
+            <div id="results-content"></div>
+            
+            <table id="detailed-results">
+                <tr>
+                    <th>Metric</th>
+                    <th>Value</th>
+                </tr>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('calculate-btn').addEventListener('click', calculateBandwidth);
+        
+        // Validate client distribution totals to 100%
+        const clientInputs = ['clients-1x1', 'clients-2x2', 'clients-3x3', 'clients-4x4'];
+        clientInputs.forEach(id => {
+            document.getElementById(id).addEventListener('change', validateClientDistribution);
+        });
+        
+        function validateClientDistribution() {
+            const client1x1 = parseInt(document.getElementById('clients-1x1').value) || 0;
+            const client2x2 = parseInt(document.getElementById('clients-2x2').value) || 0;
+            const client3x3 = parseInt(document.getElementById('clients-3x3').value) || 0;
+            const client4x4 = parseInt(document.getElementById('clients-4x4').value) || 0;
+            
+            const total = client1x1 + client2x2 + client3x3 + client4x4;
+            
+            if (total !== 100) {
+                alert(`Client distribution should total 100%. Current total: ${total}%`);
+            }
+        }
+        
+        function calculateBandwidth() {
+            // Get input values
+            const wifiStandard = document.getElementById('wifi-standard').value;
+            const channelWidth = parseInt(document.getElementById('channel-width').value);
+            const frequencyBand = document.getElementById('frequency-band').value;
+            const apSpatialStreams = parseInt(document.getElementById('ap-spatial-streams').value);
+            const numAPs = parseInt(document.getElementById('num-aps').value);
+            const totalClients = parseInt(document.getElementById('total-clients').value);
+            const activeRatio = parseInt(document.getElementById('active-ratio').value) / 100;
+            
+            const client1x1 = parseInt(document.getElementById('clients-1x1').value) / 100;
+            const client2x2 = parseInt(document.getElementById('clients-2x2').value) / 100;
+            const client3x3 = parseInt(document.getElementById('clients-3x3').value) / 100;
+            const client4x4 = parseInt(document.getElementById('clients-4x4').value) / 100;
+            
+            // Calculate maximum PHY rate based on standard, channel width, and spatial streams
+            let maxPhyRate = calculateMaxPhyRate(wifiStandard, channelWidth, frequencyBand, apSpatialStreams);
+            
+            // Calculate protocol efficiency (typically 60-70% for data frames)
+            const protocolEfficiency = 0.7;
+            
+            // Calculate effective AP throughput
+            const effectiveThroughput = maxPhyRate * protocolEfficiency;
+            
+            // Calculate average client spatial stream capability
+            const avgClientSpatialStreams = (client1x1 * 1 + client2x2 * 2 + client3x3 * 3 + client4x4 * 4);
+            
+            // Calculate spatial stream utilization factor
+            const spatialStreamFactor = Math.min(avgClientSpatialStreams / apSpatialStreams, 1);
+            
+            // Calculate adjusted throughput based on client capabilities
+            const adjustedThroughput = effectiveThroughput * spatialStreamFactor;
+            
+            // Calculate clients per AP
+            const clientsPerAP = totalClients / numAPs;
+            
+            // Calculate active clients per AP
+            const activeClientsPerAP = Math.ceil(clientsPerAP * activeRatio);
+            
+            // Calculate per-client bandwidth
+            const perClientBandwidth = adjustedThroughput / activeClientsPerAP;
+            
+            // Display results
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.style.display = 'block';
+            
+            const resultsContent = document.getElementById('results-content');
+            resultsContent.innerHTML = `<p>Estimated bandwidth per active user: <strong>${perClientBandwidth.toFixed(2)} Mbps</strong></p>`;
+            
+            // Update detailed results table
+            const detailedResults = document.getElementById('detailed-results');
+            detailedResults.innerHTML = `
+                <tr>
+                    <th>Metric</th>
+                    <th>Value</th>
+                </tr>
+                <tr>
+                    <td>Maximum PHY Rate per AP</td>
+                    <td>${maxPhyRate.toFixed(2)} Mbps</td>
+                </tr>
+                <tr>
+                    <td>Protocol Efficiency</td>
+                    <td>${(protocolEfficiency * 100).toFixed(0)}%</td>
+                </tr>
+                <tr>
+                    <td>Effective Throughput per AP</td>
+                    <td>${effectiveThroughput.toFixed(2)} Mbps</td>
+                </tr>
+                <tr>
+                    <td>Average Client Spatial Streams</td>
+                    <td>${avgClientSpatialStreams.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td>Spatial Stream Utilization Factor</td>
+                    <td>${spatialStreamFactor.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td>Adjusted Throughput per AP</td>
+                    <td>${adjustedThroughput.toFixed(2)} Mbps</td>
+                </tr>
+                <tr>
+                    <td>Clients per AP</td>
+                    <td>${clientsPerAP.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td>Active Clients per AP</td>
+                    <td>${activeClientsPerAP}</td>
+                </tr>
+                <tr>
+                    <td>Bandwidth per Active Client</td>
+                    <td>${perClientBandwidth.toFixed(2)} Mbps</td>
+                </tr>
+            `;
+        }
+        
+        function calculateMaxPhyRate(standard, channelWidth, band, spatialStreams) {
+            // Base data rates for different standards (in Mbps)
+            // These are simplified approximations
+            let baseRate = 0;
+            
+            if (standard === 'ax') { // 802.11ax (WiFi 6)
+                if (channelWidth === 20) baseRate = 143.4;
+                else if (channelWidth === 40) baseRate = 286.8;
+                else if (channelWidth === 80) baseRate = 600.4;
+                else if (channelWidth === 160) baseRate = 1201;
+            } 
+            else if (standard === 'ac') { // 802.11ac (WiFi 5)
+                if (channelWidth === 20) baseRate = 86.7;
+                else if (channelWidth === 40) baseRate = 200;
+                else if (channelWidth === 80) baseRate = 433.3;
+                else if (channelWidth === 160) baseRate = 866.7;
+            } 
+            else if (standard === 'n') { // 802.11n (WiFi 4)
+                if (channelWidth === 20) baseRate = 72.2;
+                else if (channelWidth === 40) baseRate = 150;
+                else return 150 * spatialStreams; // 802.11n only supports up to 40 MHz
+            }
+            
+            // Apply frequency band adjustment
+            if (standard === 'ax' && band === '6') {
+                // 6 GHz may have slightly better performance due to less interference
+                baseRate *= 1.05;
+            }
+            
+            // Calculate maximum PHY rate based on spatial streams
+            return baseRate * spatialStreams;
+        }
+    </script>
+</body>
+</html>
 
